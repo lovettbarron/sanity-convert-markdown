@@ -8,16 +8,33 @@ const config = {
   dataset: "andrewlbcom",
   useCdn: true,
   apiVersion: "2022-02-03",
-  token: "sanityauthtoken",
+  token: "SANITYAUTHTOKEN",
 };
 const client = sanityClient(config);
 const projectId = config.projectId;
 const dataset = config.dataset;
 console.log(client.config());
-const imageOptions = {};
+const imageOptions = { dl: null };
+
+const { getImageUrl } = BlocksToMarkdown;
+
+const rawOutput = ({ node, children }) =>
+  "```" +
+  `${node._type}\n` +
+  JSON.stringify({ node, children }, null, 2) +
+  "```";
+const toBlocks = ({ node }) =>
+  BlocksToMarkdown(node.body, { serializers, ...config });
+
 const serializers = {
   types: {
+    usageExample: rawOutput,
+    gotcha: toBlocks,
+    protip: toBlocks,
     code: (props) => `\`\`\`${props.node.language}\n${props.node.code}\n\`\`\``,
+    image: ({ node }) => {
+      return node.asset ? `![](${node.asset.url})` : "NOIMAGE";
+    },
     codesandbox: ({ node }) =>
       `<iframe src="https://codesandbox.io/embed/${node.id}?fontsize=14" style="width:100%; height:500px; border:0; border-radius: 4px; overflow:hidden;" sandbox="allow-modals allow-forms allow-popups allow-scripts allow-same-origin"></iframe>`,
     youtube: ({ node }) =>
@@ -41,11 +58,18 @@ async function getDocs() {
     date,
     body[]{
       ...,
+      _type == "image" => {
+        ...,
+        asset-> {
+           url
+        }
+    },
       children[]{
         ...,
         _type == "muxVideo" => {
             "playbackId": asset->playbackId
           },
+       
         _type == "internalLink" => {
             "type": @->_type,
             "slug": @->slug.current,
@@ -64,12 +88,17 @@ layout: post
 title: "${title}"
 date: "${date.split("T")[0]}",
 slug: "${mdslug}",
-author: "${author}",
-thumbnail: "${thumbnail}".
+author: "${author.name}",
+thumbnail: "${thumbnail.url}".
 description: "${BlocksToMarkdown(blurb)}"
 ---
 
-${BlocksToMarkdown(body, { serializers, imageOptions, projectId, dataset })}
+${BlocksToMarkdown(body, {
+  serializers,
+  imageOptions,
+  projectId: projectId,
+  dataset: dataset,
+})}
 `;
     const filename = `posts/${date.split("T")[0]}_${mdslug}.md`;
     fs.writeFile(filename, content, function (err) {
