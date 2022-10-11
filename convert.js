@@ -1,5 +1,7 @@
 /* eslint-disable */
 const fs = require("fs");
+const download = require("image-downloader");
+const path = require("node:path");
 const sanityClient = require("@sanity/client");
 const groq = require("groq");
 const BlocksToMarkdown = require("@sanity/block-content-to-markdown");
@@ -16,7 +18,7 @@ const dataset = config.dataset;
 console.log(client.config());
 const imageOptions = { dl: null };
 
-const { getImageUrl } = BlocksToMarkdown;
+const imagesToDownload = [];
 
 const rawOutput = ({ node, children }) =>
   "```" +
@@ -33,7 +35,17 @@ const serializers = {
     protip: toBlocks,
     code: (props) => `\`\`\`${props.node.language}\n${props.node.code}\n\`\`\``,
     image: ({ node }) => {
-      return node.asset ? `![](${node.asset.url})` : "NOIMAGE";
+      if (node.asset)
+        imagesToDownload.push({
+          url: node.asset.url,
+          dest: path.resolve(
+            __dirname,
+            `assets/${node.asset.path.split("/").pop()}`
+          ),
+        });
+      return node.asset
+        ? `![](./assets/${node.asset.path.split("/").pop()})`
+        : "NOIMAGE";
     },
     codesandbox: ({ node }) =>
       `<iframe src="https://codesandbox.io/embed/${node.id}?fontsize=14" style="width:100%; height:500px; border:0; border-radius: 4px; overflow:hidden;" sandbox="allow-modals allow-forms allow-popups allow-scripts allow-same-origin"></iframe>`,
@@ -51,7 +63,7 @@ async function getDocs() {
     _id,
     _type,
     "author": author->{name},
-    "thumbnail": thumbnail.asset -> {url},
+    "thumbnail": thumbnail.asset -> {path, url},
     title,
     blurb,
     slug,
@@ -61,6 +73,7 @@ async function getDocs() {
       _type == "image" => {
         ...,
         asset-> {
+           path,
            url
         }
     },
@@ -89,7 +102,7 @@ title: "${title}"
 date: "${date.split("T")[0]}",
 slug: "${mdslug}",
 author: "${author.name}",
-thumbnail: "${thumbnail.url}".
+thumbnail: "./assets/${thumbnail.path.split("/").pop()}".
 description: "${BlocksToMarkdown(blurb)}"
 ---
 
@@ -108,5 +121,13 @@ ${BlocksToMarkdown(body, {
       console.log("The file was saved!", filename);
     });
   });
+
+  imagesToDownload.forEach(async function (item, i) {
+    console.log(item);
+    await download.image({
+      ...item,
+    });
+  });
 }
+
 getDocs();

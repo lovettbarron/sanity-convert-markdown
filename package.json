@@ -2,7 +2,9 @@
   "dependencies": {
     "@sanity/block-content-to-markdown": "^0.0.5",
     "@sanity/client": "^3.4.1",
+    "axios": "^1.1.2",
     "groq": "^2.33.2",
+    "image-downloader": "^4.3.0",
     "sanity": "^2.33.2"
   }
 }
